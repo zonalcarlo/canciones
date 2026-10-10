@@ -69,16 +69,12 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="config.js"></script>
 <script>
-/* Pega aquí los mismos datos de Firebase que pusiste en index.html */
-const FIREBASE = {
-    apiKey: "AIzaSyBzsFEpARSq2s0wzFkCEOVXLLcrrP8MyPk",
-    authDomain: "zonal-song.firebaseapp.com",
-    databaseURL: "https://zonal-song-default-rtdb.firebaseio.com",
-    projectId: "zonal-song",
-    appId: "1:947464063019:web:8ae624fbb3aa1db929026e",
-  };
-const CANAL = "zonalman";
+/* Los datos de Firebase se leen de config.js */
+const CFG = window.ZONAL_CONFIG || {};
+const FIREBASE = CFG.FIREBASE || {};
+const CANAL = CFG.CANAL_TWITCH || "zonalman";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const color = (o) => (o === "yo" ? "var(--tu)" : o === "chat" ? "var(--chat)" : "var(--relleno)");
@@ -136,7 +132,7 @@ function dibujar() {
 
   const cmd = esc(e.comando || "!song");
   document.getElementById("pedir").innerHTML = e.abiertas
-    ? `<p>Para pedir una canción, escribe en el chat de <b>${esc(CANAL)}</b>:</p><p style="margin-top:8px"><code>${cmd} liga-de-youtube</code></p>`
+    ? `<p>Para pedir una canción, escribe en el chat de <b>${esc(CANAL)}</b>:</p><p style="margin-top:8px"><code>${cmd} nombre de la canción</code></p><p style="margin-top:6px;font-size:14px;color:var(--tenue)">También puedes poner una liga de YouTube.</p>`
     : `<p class="cerradas">Las peticiones están cerradas por ahora.</p>`;
 }
 </script>

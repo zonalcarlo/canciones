@@ -61,16 +61,27 @@
   .punto.ok { background: var(--relleno); }
   .punto.error { background: var(--peligro); }
 
-  .rejilla {
-    display: grid;
-    grid-template-columns: minmax(300px, 360px) minmax(320px, 1fr) minmax(280px, 340px);
-    gap: 16px;
-    padding: 16px 20px;
-    height: calc(100% - 60px);
+  /* Escritorio con ventanas que se arrastran y cambian de tamaño */
+  .escritorio { position: relative; height: calc(100vh - 62px); overflow: auto; }
+  .ventana {
+    position: absolute;
+    display: flex; flex-direction: column;
+    background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px;
+    overflow: hidden; resize: both;
+    min-width: 240px; min-height: 120px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
   }
-  .columna { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
-  .caja { background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; padding: 14px; }
-  .caja h2 { font: 600 15px var(--ui); margin: 0 0 10px; color: var(--tenue); }
+  .ventana-barra {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; cursor: move; user-select: none; touch-action: none;
+    background: var(--superficie-2); border-bottom: 1px solid var(--borde);
+    font-weight: 600; font-size: 14px; color: var(--tenue);
+  }
+  .ventana-barra::before { content: "⠿"; color: var(--borde); font-size: 16px; }
+  .ventana-cuerpo { flex: 1; min-height: 0; overflow: auto; padding: 14px; display: flex; flex-direction: column; }
+  .ventana-cuerpo.fija { overflow: hidden; }
+  body.moviendo-ventana { cursor: move; user-select: none; }
+  body.moviendo-ventana iframe { pointer-events: none; }
 
   .sonando .marco { aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background: #000; }
   .sonando .marco iframe, .sonando .marco > div { width: 100%; height: 100%; display: block; }
@@ -82,14 +93,12 @@
   .controles input[type="range"] { flex: 1; accent-color: var(--tu); }
 
   .agregar .fila { display: flex; gap: 8px; margin-top: 8px; }
+  .agregar .herramientas { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--borde); }
   .agregar .fila button { flex: 1; }
 
-  .cola-caja { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-  .cola-encabezado { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
-  .cola-encabezado h2 { margin: 0; }
-  .leyenda { display: flex; gap: 12px; font-size: 12px; color: var(--tenue); margin-left: auto; }
+  .leyenda { display: flex; gap: 12px; font-size: 12px; font-weight: 400; color: var(--tenue); margin-left: auto; }
   .leyenda span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; background: var(--c); }
-  #cola { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+  #cola { list-style: none; margin: 0; padding: 0; }
   .item {
     display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center;
     padding: 8px 10px 8px 12px; margin-bottom: 6px;
@@ -111,7 +120,6 @@
   .pestanas { display: flex; gap: 6px; margin-bottom: 10px; }
   .pestanas button { flex: 1; }
   .pestanas button[aria-selected="true"] { background: var(--fondo); border-color: var(--tu); }
-  .lateral { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   .lista-lateral { overflow-y: auto; flex: 1; margin-top: 10px; }
   .gusta { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 7px 4px; border-bottom: 1px solid var(--borde); }
   .gusta .t { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -134,9 +142,25 @@
   .aviso.error { border-left-color: var(--peligro); }
   @keyframes entra { from { transform: translateY(8px); opacity: 0; } }
 
-  @media (max-width: 1100px) {
-    .rejilla { grid-template-columns: 1fr; height: auto; }
-    #cola, .lista-lateral { max-height: 60vh; }
+  /* Letras */
+  .letras-busca { display: flex; gap: 8px; }
+  .letras-opciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--tenue); }
+  .letras-opciones label { display: flex; align-items: center; gap: 6px; }
+  .letras-opciones input { accent-color: var(--chat); }
+  .letras-opciones .derecha { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+  #letraResultados { margin-top: 8px; width: 100%; background: var(--fondo); border: 1px solid var(--borde); border-radius: 8px; padding: 6px 8px; color: var(--texto); font: inherit; font-size: 13px; }
+  #letras { position: relative; flex: 1; overflow-y: auto; margin-top: 10px; padding: 4px 4px 40vh; line-height: 1.5; }
+  #letras p { margin: 0 0 .35em; color: var(--texto); transition: color .2s, opacity .2s; }
+  #letras.sincronizada p { opacity: .45; }
+  #letras.sincronizada p.activa { opacity: 1; color: var(--tu); font-weight: 700; }
+  #letras .fuente { font-size: 12px; color: var(--tenue); margin-bottom: 10px; opacity: 1; }
+  #letras a { color: var(--chat); }
+
+  @media (max-width: 900px) {
+    .escritorio { height: auto; overflow: visible; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+    .ventana { position: static !important; width: auto !important; height: auto !important; resize: none; }
+    .ventana-barra { cursor: default; }
+    #cola, .lista-lateral, #letras { max-height: 60vh; }
   }
 
   /* ---------- Overlay ---------- */
@@ -167,33 +191,19 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="config.js"></script>
 <script>
-/* =========================================================
-   CONFIGURACIÓN — cambia solo esta parte
-   ========================================================= */
-const CONFIG = {
-  // Client ID de Google Cloud (cliente OAuth de tipo "Aplicación web")
+/* La configuración vive en config.js (así este archivo se puede actualizar sin perderla) */
+const CONFIG = Object.assign({
   GOOGLE_CLIENT_ID: "947464063019-133v6cfuid8grvj7lsetag127484rjjj.apps.googleusercontent.com",
-  // Tu canal de Twitch, tal como aparece en la URL (twitch.tv/ESTO)
+  YOUTUBE_API_KEY: "AIzaSyCXIGZOX_rBdr5KSZjQoiVT4yEktQ5yn4w",
   CANAL_TWITCH: "zonalman",
-  // Datos de Firebase para la lista pública (Configuración del proyecto → Tus apps → Web)
-  FIREBASE: {
-    apiKey: "AIzaSyBzsFEpARSq2s0wzFkCEOVXLLcrrP8MyPk",
-    authDomain: "zonal-song.firebaseapp.com",
-    databaseURL: "https://zonal-song-default-rtdb.firebaseio.com",
-    projectId: "zonal-song",
-    appId: "1:947464063019:web:8ae624fbb3aa1db929026e",
-  },
-  // Comando del chat
+  FIREBASE: null,
   COMANDO: "!song",
-  // Cuántas canciones de relleno se toman al azar de tus Me gusta
   RELLENO_CANTIDAD: 50,
-  // Duración máxima en minutos para peticiones del chat (0 = sin límite)
   DURACION_MAXIMA_MIN: 0,
-  // Volumen inicial (0 a 100)
   VOLUMEN_INICIAL: 60,
-};
-/* ========================================================= */
+}, window.ZONAL_CONFIG || {});
 
 const ES_OVERLAY = new URLSearchParams(location.search).has("overlay");
 const canal = new BroadcastChannel("zonal-song");
@@ -233,9 +243,10 @@ function iniciarPanel() {
       <button id="btnPublica" style="display:none">Conectar lista pública</button>
       <button class="principal" id="btnGoogle">Conectar con Google</button>
     </header>
-    <main class="rejilla">
-      <section class="columna">
-        <div class="caja sonando">
+    <main class="escritorio" id="escritorio">
+      <section class="ventana" data-ventana="reproductor">
+        <div class="ventana-barra">Sonando</div>
+        <div class="ventana-cuerpo sonando">
           <div class="marco"><div id="reproductor"></div></div>
           <div class="cancion" id="actualTitulo">Nada sonando</div>
           <div class="quien" id="actualQuien">Conecta Google para empezar con tus Me gusta</div>
@@ -246,37 +257,63 @@ function iniciarPanel() {
             <input type="range" min="0" max="100" id="volumen" aria-label="Volumen">
           </div>
         </div>
-        <div class="caja agregar">
-          <h2>Agregar una canción tuya</h2>
-          <input type="text" id="ligaManual" placeholder="Pega una liga de YouTube">
+      </section>
+
+      <section class="ventana" data-ventana="agregar">
+        <div class="ventana-barra">Agregar una canción tuya</div>
+        <div class="ventana-cuerpo agregar">
+          <input type="text" id="ligaManual" placeholder="Liga de YouTube o nombre de la canción">
           <div class="fila">
             <button id="btnManualYa">Poner ya</button>
             <button id="btnManualSig">Siguiente</button>
           </div>
-        </div>
-        <div class="caja herramientas">
-          <button id="btnOverlay">Abrir overlay</button>
-          <button id="btnRecargar">Recargar Me gusta</button>
-          <button id="btnReiniciar">Reiniciar lista</button>
-        </div>
-      </section>
-
-      <section class="columna">
-        <div class="caja cola-caja">
-          <div class="cola-encabezado">
-            <h2>Lista</h2><span class="nota" id="colaCuenta" style="margin:0"></span>
-            <div class="leyenda">
-              <span style="--c:var(--tu)">Tú</span>
-              <span style="--c:var(--chat)">Peticiones</span>
-              <span style="--c:var(--relleno)">Relleno</span>
-            </div>
+          <div class="herramientas">
+            <button id="btnOverlay">Abrir overlay</button>
+            <button id="btnRecargar">Recargar Me gusta</button>
+            <button id="btnReiniciar">Reiniciar lista</button>
+            <button id="btnAcomodo">Acomodo original</button>
           </div>
-          <ol id="cola"></ol>
         </div>
       </section>
 
-      <section class="columna">
-        <div class="caja lateral">
+      <section class="ventana" data-ventana="lista">
+        <div class="ventana-barra">Lista <span class="nota" id="colaCuenta" style="margin:0;font-weight:400"></span>
+          <div class="leyenda">
+            <span style="--c:var(--tu)">Tú</span>
+            <span style="--c:var(--chat)">Peticiones</span>
+            <span style="--c:var(--relleno)">Relleno</span>
+          </div>
+        </div>
+        <div class="ventana-cuerpo"><ol id="cola"></ol></div>
+      </section>
+
+      <section class="ventana" data-ventana="letras">
+        <div class="ventana-barra">Letras</div>
+        <div class="ventana-cuerpo fija">
+          <div class="letras-busca">
+            <input type="search" id="letraQ" placeholder="Artista y canción">
+            <button id="btnLetra">Buscar</button>
+          </div>
+          <div class="letras-opciones">
+            <label><input type="checkbox" id="letraAuto" checked> Buscar sola con cada canción</label>
+            <span class="derecha"><button class="mini" id="letraMenos" title="Letra más chica">A−</button><button class="mini" id="letraMas" title="Letra más grande">A+</button></span>
+          </div>
+          <select id="letraResultados" style="display:none" aria-label="Otras versiones de la letra"></select>
+          <div class="letras-opciones" id="letraSync" style="display:none">
+            <label><input type="checkbox" id="letraSeguir" checked> Seguir la canción</label>
+            <span class="derecha">
+              <button class="mini" id="letraAtras" title="La letra va adelantada">−0.5 s</button>
+              <span id="letraDesfaseTxt">0.0 s</span>
+              <button class="mini" id="letraAdelante" title="La letra va atrasada">+0.5 s</button>
+            </span>
+          </div>
+          <div id="letras"><div class="vacio">Aquí aparecerá la letra de la canción que esté sonando.</div></div>
+        </div>
+      </section>
+
+      <section class="ventana" data-ventana="lateral">
+        <div class="ventana-barra">Me gusta y usuarios</div>
+        <div class="ventana-cuerpo fija">
           <div class="pestanas" role="tablist">
             <button role="tab" aria-selected="true" data-pestana="gusta">Mis Me gusta</button>
             <button role="tab" aria-selected="false" data-pestana="usuarios">Usuarios</button>
@@ -326,7 +363,7 @@ function iniciarPanel() {
     if (!texto) return null;
     texto = texto.trim().split(/\s+/)[0];
     const valida = (id) => (/^[\w-]{11}$/.test(id || "") ? id : null);
-    if (valida(texto)) return texto;
+    if (!/[./]/.test(texto)) return null;
     let u;
     try { u = new URL(/^https?:\/\//i.test(texto) ? texto : "https://" + texto); } catch { return null; }
     const host = u.hostname.replace(/^(www\.|m\.)/, "");
@@ -343,19 +380,33 @@ function iniciarPanel() {
     return m ? (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) : 0;
   }
   const tokenVigente = () => token && Date.now() < tokenExpira;
+  const hayApiKey = () => !!CONFIG.YOUTUBE_API_KEY && !String(CONFIG.YOUTUBE_API_KEY).startsWith("PEGA");
+  const puedeBuscar = () => hayApiKey() || tokenVigente();
 
+  // Usa tu sesión de Google si sigue vigente; si no, la API key
   async function yt(recurso, params) {
     const q = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v !== "" && v != null) q.set(k, v);
-    const r = await fetch(`https://www.googleapis.com/youtube/v3/${recurso}?${q}`, { headers: { Authorization: "Bearer " + token } });
+    const opciones = {};
+    if (tokenVigente()) opciones.headers = { Authorization: "Bearer " + token };
+    else if (hayApiKey()) q.set("key", CONFIG.YOUTUBE_API_KEY);
+    else throw new Error("Sin acceso a YouTube");
+    const r = await fetch(`https://www.googleapis.com/youtube/v3/${recurso}?${q}`, opciones);
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error((d.error && d.error.message) || "Error " + r.status);
     return d;
   }
 
+  // Busca en YouTube por nombre y regresa el ID del primer video que se pueda reproducir aquí
+  async function buscarVideo(texto) {
+    const d = await yt("search", { part: "snippet", type: "video", maxResults: 5, videoEmbeddable: "true", q: texto });
+    const v = (d.items || []).find((x) => x.id && x.id.videoId);
+    return v ? v.id.videoId : null;
+  }
+
   async function obtenerInfo(videoId) {
     const url = "https://www.youtube.com/watch?v=" + videoId;
-    if (tokenVigente()) {
+    if (puedeBuscar()) {
       try {
         const d = await yt("videos", { part: "snippet,contentDetails,status", id: videoId });
         const v = d.items && d.items[0];
@@ -426,6 +477,7 @@ function iniciarPanel() {
     estado.actual = item;
     if (playerListo) player.loadVideoById(item.videoId);
     guardar();
+    letraAutomatica();
   }
   function siguiente() {
     if (!estado.cola.some((c) => c.origen === "relleno")) agregarRelleno(CONFIG.RELLENO_CANTIDAD);
@@ -470,6 +522,7 @@ function iniciarPanel() {
     const datos = player.getVideoData ? player.getVideoData() : null;
     if (a.sinTitulo && datos && datos.title) {
       a.titulo = datos.title; a.canal = datos.author || ""; a.sinTitulo = false; guardar();
+      letraAutomatica();
     }
     const max = CONFIG.DURACION_MAXIMA_MIN * 60;
     const dur = player.getDuration ? player.getDuration() : 0;
@@ -497,7 +550,7 @@ function iniciarPanel() {
   document.head.appendChild(g);
 
   function conectarGoogle() {
-    if (CONFIG.GOOGLE_CLIENT_ID.startsWith("PEGA_AQUI")) {
+    if (String(CONFIG.GOOGLE_CLIENT_ID).startsWith("PEGA")) {
       aviso("Falta poner tu Client ID de Google en la configuración del archivo.", "error"); return;
     }
     if (!window.google || !google.accounts) { aviso("Google todavía está cargando. Intenta de nuevo en un momento.", "error"); return; }
@@ -566,9 +619,207 @@ function iniciarPanel() {
     if (!estado.actual) siguiente(); else guardar();
   }
 
+  // ---------- Letras (lrclib.net) ----------
+  let letraLineas = null, letraIdx = -1, letraDesfase = 0, letraVideo = null, letraResultados = [];
+  let letraTam = 18;
+  try { letraTam = +(localStorage.getItem("zonalSongLetraTam") || 18); } catch {}
+  $("letras").style.fontSize = letraTam + "px";
+
+  function limpiarTitulo(titulo, canalVideo) {
+    let t = (titulo || "")
+      .replace(/\[[^\]]*\]/g, " ")
+      .replace(/\([^)]*(official|oficial|video|vídeo|lyric|letra|audio|hd|4k|remaster|visualizer|clip)[^)]*\)/gi, " ")
+      .replace(/\b(official|oficial)\s+(music\s+)?(video|audio)\b/gi, " ")
+      .replace(/\s(ft\.?|feat\.?)\s[^-–|]*/i, " ")
+      .replace(/\b(1080p?|720p?|4k|hd|hq)\b/gi, " ");
+    if (!/[-–|]/.test(t) && canalVideo) {
+      const artista = canalVideo.replace(/VEVO$/i, "").replace(/\s*-\s*Topic$/i, "").replace(/official/gi, "").trim();
+      if (artista) t = artista + " " + t;
+    }
+    return t.replace(/[-–|"]/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function letraAutomatica() {
+    const a = estado.actual;
+    letraDesfase = 0;
+    $("letraDesfaseTxt").textContent = "0.0 s";
+    if (!a || a.sinTitulo || !$("letraAuto").checked) return;
+    const q = limpiarTitulo(a.titulo, a.canal);
+    $("letraQ").value = q;
+    buscarLetra(q);
+  }
+
+  async function buscarLetra(q) {
+    q = (q || "").trim();
+    if (!q) return;
+    letraVideo = estado.actual ? estado.actual.videoId : null;
+    letraLineas = null; letraIdx = -1;
+    $("letras").className = "";
+    $("letras").innerHTML = `<div class="vacio">Buscando la letra…</div>`;
+    $("letraSync").style.display = "none";
+    try {
+      const r = await fetch("https://lrclib.net/api/search?q=" + encodeURIComponent(q));
+      const d = await r.json();
+      letraResultados = (Array.isArray(d) ? d : []).filter((x) => x.plainLyrics || x.syncedLyrics || x.instrumental).slice(0, 10);
+    } catch (e) {
+      console.warn("lrclib:", e);
+      letraResultados = [];
+    }
+    const sel = $("letraResultados");
+    if (!letraResultados.length) {
+      sel.style.display = "none";
+      const google = "https://www.google.com/search?q=" + encodeURIComponent("letra " + q);
+      $("letras").innerHTML = `<div class="vacio">No encontré la letra de "${esc(q)}".<br>Prueba escribir solo artista y canción, o <a href="${google}" target="_blank" rel="noopener">búscala en Google</a>.</div>`;
+      return;
+    }
+    sel.innerHTML = letraResultados.map((x, i) =>
+      `<option value="${i}">${esc(x.artistName)}: ${esc(x.trackName)}${x.syncedLyrics ? " (sincronizada)" : ""}</option>`).join("");
+    sel.style.display = letraResultados.length > 1 ? "" : "none";
+    let mejor = letraResultados.slice(0, 3).findIndex((x) => x.syncedLyrics);
+    if (mejor < 0) mejor = 0;
+    sel.value = String(mejor);
+    mostrarLetra(letraResultados[mejor]);
+  }
+
+  function leerLRC(texto) {
+    const lineas = [];
+    texto.split("\n").forEach((linea) => {
+      const tiempos = [...linea.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
+      const t = linea.replace(/\[[^\]]*\]/g, "").trim();
+      tiempos.forEach((m) => lineas.push({ t: +m[1] * 60 + +m[2], texto: t }));
+    });
+    return lineas.sort((a, b) => a.t - b.t);
+  }
+
+  function mostrarLetra(x) {
+    letraIdx = -1;
+    const cont = $("letras");
+    const fuente = `<p class="fuente">${esc(x.artistName)}: ${esc(x.trackName)}</p>`;
+    if (x.instrumental && !x.plainLyrics && !x.syncedLyrics) {
+      letraLineas = null; cont.className = "";
+      cont.innerHTML = fuente + `<div class="vacio">Esta es instrumental. ¡A tararear!</div>`;
+      $("letraSync").style.display = "none";
+    } else if (x.syncedLyrics) {
+      letraLineas = leerLRC(x.syncedLyrics);
+      cont.className = "sincronizada";
+      cont.innerHTML = fuente + letraLineas.map((l, i) => `<p data-i="${i}">${esc(l.texto) || "♪"}</p>`).join("");
+      $("letraSync").style.display = "";
+    } else {
+      letraLineas = null; cont.className = "";
+      cont.innerHTML = fuente + x.plainLyrics.split("\n").map((l) => `<p>${esc(l) || "&nbsp;"}</p>`).join("");
+      $("letraSync").style.display = "none";
+    }
+    cont.scrollTop = 0;
+  }
+
+  // Resalta la línea que va sonando (solo con letras sincronizadas)
+  setInterval(() => {
+    if (!letraLineas || !$("letraSeguir").checked || !playerListo || !player.getCurrentTime) return;
+    if (!estado.actual || estado.actual.videoId !== letraVideo) return;
+    const t = player.getCurrentTime() + letraDesfase;
+    let i = -1;
+    for (let k = 0; k < letraLineas.length; k++) { if (letraLineas[k].t <= t) i = k; else break; }
+    if (i === letraIdx) return;
+    const cont = $("letras");
+    const anterior = cont.querySelector("p.activa");
+    if (anterior) anterior.classList.remove("activa");
+    letraIdx = i;
+    const p = i >= 0 ? cont.querySelector(`p[data-i="${i}"]`) : null;
+    if (p) {
+      p.classList.add("activa");
+      cont.scrollTo({ top: p.offsetTop - cont.clientHeight / 2 + p.clientHeight / 2, behavior: "smooth" });
+    }
+  }, 250);
+
+  $("btnLetra").onclick = () => buscarLetra($("letraQ").value);
+  $("letraQ").onkeydown = (e) => { if (e.key === "Enter") buscarLetra($("letraQ").value); };
+  $("letraResultados").onchange = (e) => mostrarLetra(letraResultados[+e.target.value]);
+  const cambiarTam = (d) => {
+    letraTam = Math.max(12, Math.min(44, letraTam + d));
+    $("letras").style.fontSize = letraTam + "px";
+    try { localStorage.setItem("zonalSongLetraTam", letraTam); } catch {}
+  };
+  $("letraMenos").onclick = () => cambiarTam(-2);
+  $("letraMas").onclick = () => cambiarTam(2);
+  const moverDesfase = (d) => {
+    letraDesfase = Math.round((letraDesfase + d) * 10) / 10;
+    $("letraDesfaseTxt").textContent = (letraDesfase > 0 ? "+" : "") + letraDesfase.toFixed(1) + " s";
+    letraIdx = -2;
+  };
+  $("letraAtras").onclick = () => moverDesfase(-0.5);
+  $("letraAdelante").onclick = () => moverDesfase(0.5);
+
+  // ---------- Ventanas que se arrastran ----------
+  const escritorio = $("escritorio");
+  const ventanas = [...document.querySelectorAll(".ventana")];
+  let zTope = 10;
+
+  function acomodoOriginal() {
+    const W = Math.max(escritorio.clientWidth, 1200), H = Math.max(escritorio.clientHeight, 640);
+    const g = 12, c1 = 380, c3 = 380, c4 = 340;
+    const c2 = Math.max(320, W - c1 - c3 - c4 - g * 5);
+    return {
+      reproductor: { x: g, y: g, w: c1, h: 470 },
+      agregar: { x: g, y: 470 + g * 2, w: c1, h: Math.max(200, H - 470 - g * 3) },
+      lista: { x: c1 + g * 2, y: g, w: c2, h: H - g * 2 },
+      letras: { x: c1 + c2 + g * 3, y: g, w: c3, h: H - g * 2 },
+      lateral: { x: c1 + c2 + c3 + g * 4, y: g, w: c4, h: H - g * 2 },
+    };
+  }
+  function aplicarAcomodo(a) {
+    ventanas.forEach((v) => {
+      const p = a[v.dataset.ventana];
+      if (!p) return;
+      Object.assign(v.style, { left: p.x + "px", top: p.y + "px", width: p.w + "px", height: p.h + "px" });
+    });
+  }
+  function guardarAcomodo() {
+    const a = {};
+    ventanas.forEach((v) => {
+      a[v.dataset.ventana] = { x: v.offsetLeft, y: v.offsetTop, w: v.offsetWidth, h: v.offsetHeight };
+    });
+    try { localStorage.setItem("zonalSongAcomodo", JSON.stringify(a)); } catch {}
+  }
+  let acomodo = null;
+  try { acomodo = JSON.parse(localStorage.getItem("zonalSongAcomodo") || "null"); } catch {}
+  const base = acomodoOriginal();
+  aplicarAcomodo(Object.assign({}, base, acomodo || {}));
+
+  ventanas.forEach((v) => {
+    v.addEventListener("pointerdown", () => { v.style.zIndex = ++zTope; });
+    const barra = v.querySelector(".ventana-barra");
+    barra.addEventListener("pointerdown", (e) => {
+      if (window.innerWidth <= 900 || e.button !== 0 || e.target.closest("button, input, select, a")) return;
+      e.preventDefault();
+      const inicio = { x: e.clientX, y: e.clientY, l: v.offsetLeft, t: v.offsetTop };
+      document.body.classList.add("moviendo-ventana");
+      const mover = (ev) => {
+        v.style.left = Math.max(0, inicio.l + ev.clientX - inicio.x) + "px";
+        v.style.top = Math.max(0, inicio.t + ev.clientY - inicio.y) + "px";
+      };
+      const soltar = () => {
+        document.body.classList.remove("moviendo-ventana");
+        window.removeEventListener("pointermove", mover);
+        window.removeEventListener("pointerup", soltar);
+        guardarAcomodo();
+      };
+      window.addEventListener("pointermove", mover);
+      window.addEventListener("pointerup", soltar);
+    });
+  });
+  // Guarda también cuando cambias el tamaño desde la esquina
+  let tmrAcomodo = null;
+  const observador = new ResizeObserver(() => { clearTimeout(tmrAcomodo); tmrAcomodo = setTimeout(guardarAcomodo, 400); });
+  ventanas.forEach((v) => observador.observe(v));
+
+  $("btnAcomodo").onclick = () => {
+    try { localStorage.removeItem("zonalSongAcomodo"); } catch {}
+    aplicarAcomodo(acomodoOriginal());
+  };
+
   // ---------- Lista pública (Firebase) ----------
   let fbDb = null, fbListo = false, fbTimer = null;
-  const fbConfigurado = CONFIG.FIREBASE && CONFIG.FIREBASE.apiKey && !CONFIG.FIREBASE.apiKey.startsWith("PEGA");
+  const fbConfigurado = !!(CONFIG.FIREBASE && CONFIG.FIREBASE.apiKey && !String(CONFIG.FIREBASE.apiKey).startsWith("PEGA"));
   if (fbConfigurado && window.firebase) {
     firebase.initializeApp(CONFIG.FIREBASE);
     fbDb = firebase.database();
@@ -661,11 +912,18 @@ function iniciarPanel() {
   }
 
   async function peticionChat(nombre, login, texto, esDueno) {
-    const vid = extraerVideoId(texto);
-    if (!vid) { aviso(`${nombre}: usa ${CONFIG.COMANDO} seguido de una liga de YouTube.`, "error", true); return; }
+    texto = (texto || "").trim();
+    if (!texto) { aviso(`${nombre}: usa ${CONFIG.COMANDO} con una liga de YouTube o el nombre de la canción.`, "error", true); return; }
     if (!esDueno) {
       if (!estado.abiertas) { aviso(`${nombre}: las peticiones están cerradas por ahora.`, "error", true); return; }
       if (estado.bloqueados.includes(login)) { aviso(`${nombre} ya llenó su cupo de canciones por hoy.`, "error", true); return; }
+    }
+    let vid = extraerVideoId(texto);
+    if (!vid) {
+      if (!puedeBuscar()) { aviso(`${nombre}: por ahora solo se aceptan ligas de YouTube.`, "error", true); return; }
+      try { vid = await buscarVideo(texto); }
+      catch (e) { aviso(`${nombre}: la búsqueda de YouTube no está disponible ahora. Manda una liga.`, "error", true); console.warn(e); return; }
+      if (!vid) { aviso(`${nombre}: no encontré "${texto}" en YouTube.`, "error", true); return; }
     }
     if (yaEstaPedida(vid)) { aviso(`${nombre}: esa canción ya está en la lista.`, "error", true); return; }
     const info = await obtenerInfo(vid);
@@ -686,8 +944,14 @@ function iniciarPanel() {
 
   // ---------- Tus canciones ----------
   async function agregarManual(modo) {
-    const vid = extraerVideoId($("ligaManual").value);
-    if (!vid) { aviso("Esa liga no es de un video de YouTube.", "error"); return; }
+    const texto = $("ligaManual").value.trim();
+    if (!texto) return;
+    let vid = extraerVideoId(texto);
+    if (!vid) {
+      if (!puedeBuscar()) { aviso("Para buscar por nombre falta la API key de YouTube en config.js. Pega una liga.", "error"); return; }
+      try { vid = await buscarVideo(texto); } catch (e) { aviso("No se pudo buscar en YouTube: " + e.message, "error"); return; }
+      if (!vid) { aviso(`No encontré "${texto}" en YouTube.`, "error"); return; }
+    }
     const info = await obtenerInfo(vid);
     if (info.error) { aviso(info.error === "bloqueado" ? "Ese video no se puede reproducir fuera de YouTube." : "No encontré ese video.", "error"); return; }
     $("ligaManual").value = "";
@@ -852,6 +1116,8 @@ function iniciarPanel() {
   });
 
   dibujar();
+  if (!window.ZONAL_CONFIG) aviso("No encontré config.js. Súbelo a GitHub junto a index.html.", "error");
+  letraAutomatica();
   conectarChat();
 }
 
