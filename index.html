@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zonal Song</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --fondo: #1b1630;
+    --superficie: #252040;
+    --superficie-2: #2f2950;
+    --borde: #3d3566;
+    --texto: #ece6f6;
+    --tenue: #a99fc4;
+    --tu: #e8b04a;
+    --chat: #b48cff;
+    --relleno: #58c4a8;
+    --peligro: #ff6b7a;
+    --titulo: "Fraunces", Georgia, "Times New Roman", serif;
+    --ui: "Figtree", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--fondo);
+    color: var(--texto);
+    font: 15px/1.45 var(--ui);
+  }
+  button, input { font: inherit; color: inherit; }
+  button {
+    cursor: pointer;
+    border: 1px solid var(--borde);
+    background: var(--superficie-2);
+    border-radius: 8px;
+    padding: 7px 12px;
+  }
+  button:hover { border-color: var(--tenue); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--tu); outline-offset: 2px; }
+  button.principal { background: var(--tu); color: #1b1630; border-color: var(--tu); font-weight: 700; }
+  button.mini { padding: 4px 8px; font-size: 13px; }
+  input[type="text"], input[type="search"] {
+    width: 100%;
+    background: var(--fondo);
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+
+  /* ---------- Panel ---------- */
+  .barra {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--borde);
+  }
+  .barra h1 { font: 700 22px var(--titulo); margin: 0 auto 0 0; }
+  .estado { font-size: 13px; color: var(--tenue); display: flex; align-items: center; gap: 6px; }
+  .punto { width: 9px; height: 9px; border-radius: 50%; background: var(--tenue); }
+  .punto.ok { background: var(--relleno); }
+  .punto.error { background: var(--peligro); }
+
+  .rejilla {
+    display: grid;
+    grid-template-columns: minmax(300px, 360px) minmax(320px, 1fr) minmax(280px, 340px);
+    gap: 16px;
+    padding: 16px 20px;
+    height: calc(100% - 60px);
+  }
+  .columna { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  .caja { background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; padding: 14px; }
+  .caja h2 { font: 600 15px var(--ui); margin: 0 0 10px; color: var(--tenue); }
+
+  .sonando .marco { aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background: #000; }
+  .sonando .marco iframe, .sonando .marco > div { width: 100%; height: 100%; display: block; }
+  .sonando .cancion { font: 700 21px/1.2 var(--titulo); margin: 12px 0 2px; overflow-wrap: anywhere; }
+  .sonando .quien { font-size: 13px; color: var(--tenue); }
+  .progreso { height: 4px; background: var(--fondo); border-radius: 2px; margin: 10px 0; overflow: hidden; }
+  .progreso div { height: 100%; width: 0; background: var(--tu); }
+  .controles { display: flex; gap: 8px; align-items: center; }
+  .controles input[type="range"] { flex: 1; accent-color: var(--tu); }
+
+  .agregar .fila { display: flex; gap: 8px; margin-top: 8px; }
+  .agregar .fila button { flex: 1; }
+
+  .cola-caja { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .cola-encabezado { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .cola-encabezado h2 { margin: 0; }
+  .leyenda { display: flex; gap: 12px; font-size: 12px; color: var(--tenue); margin-left: auto; }
+  .leyenda span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; background: var(--c); }
+  #cola { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+  .item {
+    display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center;
+    padding: 8px 10px 8px 12px; margin-bottom: 6px;
+    background: var(--superficie-2); border-radius: 8px;
+    border-left: 4px solid var(--c);
+    cursor: grab;
+  }
+  .item.yo { --c: var(--tu); }
+  .item.chat { --c: var(--chat); }
+  .item.relleno { --c: var(--relleno); background: transparent; border: 1px solid var(--borde); border-left: 4px solid var(--c); }
+  .item .pos { color: var(--tenue); font-size: 13px; text-align: right; }
+  .item .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .s { font-size: 12px; color: var(--tenue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .s b { color: var(--c); font-weight: 600; }
+  .item .acciones { display: flex; gap: 4px; }
+  .sortable-ghost { opacity: .35; }
+  .vacio { color: var(--tenue); text-align: center; padding: 30px 10px; }
+
+  .pestanas { display: flex; gap: 6px; margin-bottom: 10px; }
+  .pestanas button { flex: 1; }
+  .pestanas button[aria-selected="true"] { background: var(--fondo); border-color: var(--tu); }
+  .lateral { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .lista-lateral { overflow-y: auto; flex: 1; margin-top: 10px; }
+  .gusta { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 7px 4px; border-bottom: 1px solid var(--borde); }
+  .gusta .t { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gusta .s { font-size: 12px; color: var(--tenue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gusta .acciones { display: flex; gap: 4px; }
+  .nota { font-size: 12px; color: var(--tenue); margin-top: 8px; }
+
+  .interruptor { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--fondo); border-radius: 8px; }
+  .interruptor input { width: 18px; height: 18px; accent-color: var(--relleno); }
+  .usuario { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--borde); }
+  .usuario.bloqueado .nombre { color: var(--peligro); text-decoration: line-through; }
+  .usuario .cuenta { font-size: 12px; color: var(--tenue); }
+  .usuario label { display: flex; align-items: center; gap: 5px; font-size: 13px; }
+  .usuario input { accent-color: var(--peligro); }
+
+  .herramientas { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  #avisos { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 10; max-width: 380px; }
+  .aviso { background: var(--superficie-2); border: 1px solid var(--borde); border-left: 4px solid var(--relleno); padding: 10px 14px; border-radius: 8px; font-size: 14px; animation: entra .25s ease-out; }
+  .aviso.error { border-left-color: var(--peligro); }
+  @keyframes entra { from { transform: translateY(8px); opacity: 0; } }
+
+  @media (max-width: 1100px) {
+    .rejilla { grid-template-columns: 1fr; height: auto; }
+    #cola, .lista-lateral { max-height: 60vh; }
+  }
+
+  /* ---------- Overlay ---------- */
+  body.overlay { background: var(--fondo); overflow: hidden; }
+  .ov { padding: 22px; display: flex; flex-direction: column; gap: 14px; height: 100%; }
+  .ov-actual { border-left: 6px solid var(--c, var(--relleno)); padding-left: 16px; }
+  .ov-actual .etiqueta { font-size: 15px; color: var(--tenue); }
+  .ov-actual .cancion { font: 700 32px/1.15 var(--titulo); margin: 4px 0; overflow-wrap: anywhere; }
+  .ov-actual .quien { font-size: 18px; color: var(--c, var(--tenue)); font-weight: 600; }
+  .ov .progreso { height: 6px; }
+  .ov ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .ov li { display: grid; grid-template-columns: 6px 1fr; gap: 12px; font-size: 19px; }
+  .ov li::before { content: ""; background: var(--c); border-radius: 3px; }
+  .ov li .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ov li .s { font-size: 15px; color: var(--tenue); }
+  .ov li.yo { --c: var(--tu); } .ov li.chat { --c: var(--chat); } .ov li.relleno { --c: var(--relleno); }
+  .ov-aviso { margin-top: auto; background: var(--superficie-2); border-left: 6px solid var(--chat); padding: 12px 16px; border-radius: 8px; font-size: 19px; font-weight: 600; animation: entra .3s ease-out; }
+  .ov-aviso.error { border-left-color: var(--peligro); }
+
+  @media (prefers-reduced-motion: reduce) { .aviso, .ov-aviso { animation: none; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="avisos" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<script>
+/* =========================================================
+   CONFIGURACIÓN — cambia solo esta parte
+   ========================================================= */
+const CONFIG = {
+  // Client ID de Google Cloud (cliente OAuth de tipo "Aplicación web")
+  GOOGLE_CLIENT_ID: "PEGA_AQUI_TU_CLIENT_ID.apps.googleusercontent.com",
+  // Tu canal de Twitch, tal como aparece en la URL (twitch.tv/ESTO)
+  CANAL_TWITCH: "tu_canal",
+  // Comando del chat
+  COMANDO: "!song",
+  // Cuántas canciones de relleno se toman al azar de tus Me gusta
+  RELLENO_CANTIDAD: 50,
+  // Duración máxima en minutos para peticiones del chat (0 = sin límite)
+  DURACION_MAXIMA_MIN: 0,
+  // Volumen inicial (0 a 100)
+  VOLUMEN_INICIAL: 60,
+};
+/* ========================================================= */
+
+const ES_OVERLAY = new URLSearchParams(location.search).has("overlay");
+const canal = new BroadcastChannel("zonal-song");
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const mezclar = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const ORIGEN_TEXTO = { yo: "Tú", chat: "Petición", relleno: "Relleno" };
+
+if (ES_OVERLAY) iniciarOverlay(); else iniciarPanel();
+
+/* =========================================================
+   PANEL
+   ========================================================= */
+function iniciarPanel() {
+  // ---------- Estado ----------
+  let estado = { actual: null, cola: [], bloqueados: [], usuarios: {}, abiertas: true };
+  try {
+    const guardado = JSON.parse(sessionStorage.getItem("zonalSong") || "null");
+    if (guardado && guardado.cola) { estado = Object.assign(estado, guardado); setTimeout(() => aviso("Recuperé la lista de esta sesión."), 300); }
+  } catch {}
+
+  let meGusta = [], bolsa = [], bolsaIdx = 0, fuenteMeGusta = "";
+  let token = null, tokenExpira = 0, tokenClient = null;
+  let player = null, playerListo = false, arrastrando = false;
+  let volumen = CONFIG.VOLUMEN_INICIAL;
+  try { const v = localStorage.getItem("zonalSongVol"); if (v !== null) volumen = +v; } catch {}
+  let contador = 0;
+  const nuevoId = () => "c" + Date.now().toString(36) + (contador++);
+
+  // ---------- Estructura ----------
+  document.getElementById("app").innerHTML = `
+    <header class="barra">
+      <h1>Zonal Song</h1>
+      <span class="estado"><span class="punto" id="puntoGoogle"></span><span id="txtGoogle">Me gusta sin cargar</span></span>
+      <span class="estado"><span class="punto" id="puntoChat"></span><span id="txtChat">Chat sin conectar</span></span>
+      <button class="principal" id="btnGoogle">Conectar con Google</button>
+    </header>
+    <main class="rejilla">
+      <section class="columna">
+        <div class="caja sonando">
+          <div class="marco"><div id="reproductor"></div></div>
+          <div class="cancion" id="actualTitulo">Nada sonando</div>
+          <div class="quien" id="actualQuien">Conecta Google para empezar con tus Me gusta</div>
+          <div class="progreso"><div id="barraProgreso"></div></div>
+          <div class="controles">
+            <button id="btnPlay" aria-label="Pausar o reproducir">Pausa</button>
+            <button id="btnSaltar">Saltar</button>
+            <input type="range" min="0" max="100" id="volumen" aria-label="Volumen">
+          </div>
+        </div>
+        <div class="caja agregar">
+          <h2>Agregar una canción tuya</h2>
+          <input type="text" id="ligaManual" placeholder="Pega una liga de YouTube">
+          <div class="fila">
+            <button id="btnManualYa">Poner ya</button>
+            <button id="btnManualSig">Siguiente</button>
+          </div>
+        </div>
+        <div class="caja herramientas">
+          <button id="btnOverlay">Abrir overlay</button>
+          <button id="btnRecargar">Recargar Me gusta</button>
+          <button id="btnReiniciar">Reiniciar lista</button>
+        </div>
+      </section>
+
+      <section class="columna">
+        <div class="caja cola-caja">
+          <div class="cola-encabezado">
+            <h2>Lista</h2><span class="nota" id="colaCuenta" style="margin:0"></span>
+            <div class="leyenda">
+              <span style="--c:var(--tu)">Tú</span>
+              <span style="--c:var(--chat)">Peticiones</span>
+              <span style="--c:var(--relleno)">Relleno</span>
+            </div>
+          </div>
+          <ol id="cola"></ol>
+        </div>
+      </section>
+
+      <section class="columna">
+        <div class="caja lateral">
+          <div class="pestanas" role="tablist">
+            <button role="tab" aria-selected="true" data-pestana="gusta">Mis Me gusta</button>
+            <button role="tab" aria-selected="false" data-pestana="usuarios">Usuarios</button>
+          </div>
+          <div id="pestanaGusta" style="display:flex;flex-direction:column;flex:1;min-height:0">
+            <input type="search" id="buscar" placeholder="Buscar por título o artista">
+            <div class="lista-lateral" id="listaGusta"><div class="vacio">Conecta Google para ver tus Me gusta.</div></div>
+          </div>
+          <div id="pestanaUsuarios" style="display:none;flex-direction:column;flex:1;min-height:0">
+            <label class="interruptor"><input type="checkbox" id="abiertas"> Peticiones abiertas para el chat</label>
+            <div class="lista-lateral" id="listaUsuarios"></div>
+          </div>
+        </div>
+      </section>
+    </main>`;
+
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- Avisos ----------
+  function aviso(texto, tipo = "ok", alOverlay = false) {
+    const d = document.createElement("div");
+    d.className = "aviso" + (tipo === "error" ? " error" : "");
+    d.textContent = texto;
+    $("avisos").appendChild(d);
+    setTimeout(() => d.remove(), 6000);
+    if (alOverlay) canal.postMessage({ tipo: "aviso", texto, error: tipo === "error" });
+  }
+  function indicador(cual, texto, tipo) {
+    $("txt" + cual).textContent = texto;
+    $("punto" + cual).className = "punto " + (tipo || "");
+  }
+
+  // ---------- Guardar, dibujar y avisar al overlay ----------
+  function guardar() {
+    try { sessionStorage.setItem("zonalSong", JSON.stringify(estado)); } catch {}
+    dibujar();
+    emitir();
+  }
+  function emitir() {
+    canal.postMessage({ tipo: "estado", actual: estado.actual, siguientes: estado.cola.slice(0, 5) });
+  }
+  canal.onmessage = (e) => { if (e.data && e.data.tipo === "pedir") emitir(); };
+
+  // ---------- Utilidades de videos ----------
+  function extraerVideoId(texto) {
+    if (!texto) return null;
+    texto = texto.trim().split(/\s+/)[0];
+    const valida = (id) => (/^[\w-]{11}$/.test(id || "") ? id : null);
+    if (valida(texto)) return texto;
+    let u;
+    try { u = new URL(/^https?:\/\//i.test(texto) ? texto : "https://" + texto); } catch { return null; }
+    const host = u.hostname.replace(/^(www\.|m\.)/, "");
+    if (host === "youtu.be") return valida(u.pathname.slice(1, 12));
+    if (host === "youtube.com" || host === "music.youtube.com") {
+      if (u.searchParams.get("v")) return valida(u.searchParams.get("v"));
+      const m = u.pathname.match(/^\/(shorts|embed|live|v)\/([\w-]{11})/);
+      if (m) return m[2];
+    }
+    return null;
+  }
+  function isoASegundos(d) {
+    const m = (d || "").match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    return m ? (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) : 0;
+  }
+  const tokenVigente = () => token && Date.now() < tokenExpira;
+
+  async function yt(recurso, params) {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== "" && v != null) q.set(k, v);
+    const r = await fetch(`https://www.googleapis.com/youtube/v3/${recurso}?${q}`, { headers: { Authorization: "Bearer " + token } });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((d.error && d.error.message) || "Error " + r.status);
+    return d;
+  }
+
+  async function obtenerInfo(videoId) {
+    const url = "https://www.youtube.com/watch?v=" + videoId;
+    if (tokenVigente()) {
+      try {
+        const d = await yt("videos", { part: "snippet,contentDetails,status", id: videoId });
+        const v = d.items && d.items[0];
+        if (!v) return { error: "noexiste" };
+        if (v.status && v.status.embeddable === false) return { error: "bloqueado" };
+        return { titulo: v.snippet.title, canal: v.snippet.channelTitle, duracion: isoASegundos(v.contentDetails.duration) };
+      } catch {}
+    }
+    try {
+      const r = await fetch("https://www.youtube.com/oembed?format=json&url=" + encodeURIComponent(url));
+      if (r.status === 401 || r.status === 403) return { error: "bloqueado" };
+      if (r.status === 404 || r.status === 400) return { error: "noexiste" };
+      if (r.ok) { const d = await r.json(); return { titulo: d.title, canal: d.author_name }; }
+    } catch {}
+    try {
+      const r = await fetch("https://noembed.com/embed?url=" + encodeURIComponent(url));
+      const d = await r.json();
+      if (d.title) return { titulo: d.title, canal: d.author_name };
+    } catch {}
+    return { titulo: "Video " + videoId, canal: "", sinTitulo: true };
+  }
+
+  function crearItem(info, origen, extra = {}) {
+    return {
+      id: nuevoId(), videoId: info.videoId, titulo: info.titulo, canal: info.canal || "",
+      duracion: info.duracion || 0, origen, prioridad: !!extra.prioridad,
+      pedidoPor: extra.pedidoPor || "", login: extra.login || "", sinTitulo: !!info.sinTitulo,
+    };
+  }
+
+  // ---------- Reglas de la lista ----------
+  // Tus canciones de "Siguiente": justo después de la actual, detrás de otras tuyas de "Siguiente"
+  function insertarSiguiente(item) {
+    let i = 0;
+    while (i < estado.cola.length && estado.cola[i].prioridad) i++;
+    estado.cola.splice(i, 0, item);
+  }
+  // Peticiones del chat: después de la última canción que no sea relleno
+  function insertarPeticion(item) {
+    let ultima = -1;
+    estado.cola.forEach((c, i) => { if (c.origen !== "relleno") ultima = i; });
+    estado.cola.splice(ultima + 1, 0, item);
+  }
+  function quitarDelRelleno(videoId) {
+    estado.cola = estado.cola.filter((c) => !(c.origen === "relleno" && c.videoId === videoId));
+  }
+  function yaEstaPedida(videoId) {
+    return (estado.actual && estado.actual.videoId === videoId) ||
+      estado.cola.some((c) => c.origen !== "relleno" && c.videoId === videoId);
+  }
+  function agregarRelleno(n) {
+    if (!meGusta.length) return;
+    const enUso = new Set(estado.cola.map((c) => c.videoId));
+    if (estado.actual) enUso.add(estado.actual.videoId);
+    let agregadas = 0, intentos = 0;
+    while (agregadas < n && intentos < meGusta.length * 2) {
+      if (bolsaIdx >= bolsa.length) { bolsa = mezclar([...meGusta]); bolsaIdx = 0; }
+      const c = bolsa[bolsaIdx++]; intentos++;
+      if (enUso.has(c.videoId)) continue;
+      enUso.add(c.videoId);
+      estado.cola.push(crearItem(c, "relleno"));
+      agregadas++;
+    }
+  }
+
+  // ---------- Reproducción ----------
+  function reproducir(item) {
+    estado.actual = item;
+    if (playerListo) player.loadVideoById(item.videoId);
+    guardar();
+  }
+  function siguiente() {
+    if (!estado.cola.some((c) => c.origen === "relleno")) agregarRelleno(CONFIG.RELLENO_CANTIDAD);
+    const prox = estado.cola.shift();
+    if (!prox) {
+      estado.actual = null;
+      if (playerListo) player.stopVideo();
+      guardar();
+      return;
+    }
+    reproducir(prox);
+  }
+  function ponerYa(item) {
+    estado.cola = estado.cola.filter((c) => c.id !== item.id && !(c.origen === "relleno" && c.videoId === item.videoId));
+    reproducir(item);
+  }
+
+  window.onYouTubeIframeAPIReady = function () {
+    player = new YT.Player("reproductor", {
+      playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
+      events: {
+        onReady: () => {
+          playerListo = true;
+          player.setVolume(volumen);
+          if (estado.actual) player.cueVideoById(estado.actual.videoId);
+        },
+        onStateChange: (e) => {
+          if (e.data === YT.PlayerState.ENDED) siguiente();
+          $("btnPlay").textContent = e.data === YT.PlayerState.PLAYING ? "Pausa" : "Reproducir";
+          if (e.data === YT.PlayerState.PLAYING && estado.actual) alEmpezar();
+        },
+        onError: (e) => {
+          const t = estado.actual ? estado.actual.titulo : "la canción";
+          aviso(`"${t}" no se puede reproducir aquí (error ${e.data}). Pasé a la siguiente.`, "error");
+          setTimeout(siguiente, 800);
+        },
+      },
+    });
+  };
+  function alEmpezar() {
+    const a = estado.actual;
+    const datos = player.getVideoData ? player.getVideoData() : null;
+    if (a.sinTitulo && datos && datos.title) {
+      a.titulo = datos.title; a.canal = datos.author || ""; a.sinTitulo = false; guardar();
+    }
+    const max = CONFIG.DURACION_MAXIMA_MIN * 60;
+    const dur = player.getDuration ? player.getDuration() : 0;
+    if (max && a.origen === "chat" && dur > max) {
+      aviso(`La canción de ${a.pedidoPor} dura más de ${CONFIG.DURACION_MAXIMA_MIN} min. Pasé a la siguiente.`, "error", true);
+      siguiente();
+    }
+  }
+  setInterval(() => {
+    if (!playerListo || !player.getDuration) return;
+    const d = player.getDuration(), t = player.getCurrentTime();
+    const pct = d ? Math.min(100, (t / d) * 100) : 0;
+    $("barraProgreso").style.width = pct + "%";
+    canal.postMessage({ tipo: "progreso", pct });
+  }, 1000);
+
+  const s = document.createElement("script");
+  s.src = "https://www.youtube.com/iframe_api";
+  document.head.appendChild(s);
+
+  // ---------- Google: leer tus Me gusta ----------
+  const g = document.createElement("script");
+  g.src = "https://accounts.google.com/gsi/client";
+  g.async = true;
+  document.head.appendChild(g);
+
+  function conectarGoogle() {
+    if (CONFIG.GOOGLE_CLIENT_ID.startsWith("PEGA_AQUI")) {
+      aviso("Falta poner tu Client ID de Google en la configuración del archivo.", "error"); return;
+    }
+    if (!window.google || !google.accounts) { aviso("Google todavía está cargando. Intenta de nuevo en un momento.", "error"); return; }
+    if (!tokenClient) {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CONFIG.GOOGLE_CLIENT_ID,
+        scope: "https://www.googleapis.com/auth/youtube.readonly",
+        callback: async (r) => {
+          if (r.error) { aviso("Google no dio acceso: " + r.error, "error"); indicador("Google", "Sin acceso", "error"); return; }
+          token = r.access_token;
+          tokenExpira = Date.now() + (Number(r.expires_in || 3600) - 60) * 1000;
+          await cargarMeGusta();
+        },
+      });
+    }
+    // Este clic también desbloquea el audio en Chrome
+    if (playerListo && estado.actual) player.playVideo();
+    tokenClient.requestAccessToken({ prompt: "" });
+  }
+
+  async function leerPlaylist(id, limite) {
+    const items = [];
+    let pagina = "";
+    do {
+      const d = await yt("playlistItems", { part: "snippet", playlistId: id, maxResults: 50, pageToken: pagina });
+      for (const it of d.items || []) {
+        const sn = it.snippet || {};
+        const vid = sn.resourceId && sn.resourceId.videoId;
+        if (!vid || sn.title === "Deleted video" || sn.title === "Private video") continue;
+        items.push({ videoId: vid, titulo: sn.title, canal: (sn.videoOwnerChannelTitle || "").replace(/ - Topic$/, "") });
+      }
+      pagina = d.nextPageToken || "";
+      indicador("Google", `Leyendo Me gusta… ${items.length}`, "");
+    } while (pagina && items.length < limite);
+    return items;
+  }
+  async function soloMusica(lista) {
+    const musica = [];
+    for (let i = 0; i < lista.length; i += 50) {
+      const grupo = lista.slice(i, i + 50);
+      const d = await yt("videos", { part: "snippet", id: grupo.map((x) => x.videoId).join(","), maxResults: 50 });
+      const esMusica = new Set((d.items || []).filter((v) => v.snippet.categoryId === "10").map((v) => v.id));
+      grupo.forEach((x) => esMusica.has(x.videoId) && musica.push(x));
+    }
+    return musica;
+  }
+
+  async function cargarMeGusta() {
+    indicador("Google", "Leyendo Me gusta…", "");
+    let lista = [];
+    try { lista = await leerPlaylist("LM", 5000); fuenteMeGusta = "YouTube Music"; }
+    catch (e) { console.warn("No se pudo leer LM:", e.message); }
+    if (!lista.length) {
+      try { lista = await soloMusica(await leerPlaylist("LL", 3000)); fuenteMeGusta = "YouTube, solo música"; }
+      catch (e) { aviso("No pude leer tus Me gusta: " + e.message, "error"); indicador("Google", "Error al leer Me gusta", "error"); return; }
+    }
+    if (!lista.length) { aviso("Tu lista de Me gusta salió vacía.", "error"); indicador("Google", "Me gusta vacía", "error"); return; }
+    meGusta = lista;
+    bolsa = mezclar([...meGusta]); bolsaIdx = 0;
+    estado.cola = estado.cola.filter((c) => c.origen !== "relleno");
+    agregarRelleno(CONFIG.RELLENO_CANTIDAD);
+    indicador("Google", `${meGusta.length} canciones de ${fuenteMeGusta}`, "ok");
+    $("btnGoogle").textContent = "Reconectar Google";
+    dibujarMeGusta();
+    if (!estado.actual) siguiente(); else guardar();
+  }
+
+  // ---------- Chat de Twitch (solo lectura, anónimo) ----------
+  function conectarChat() {
+    if (CONFIG.CANAL_TWITCH === "tu_canal") { indicador("Chat", "Falta tu canal en la configuración", "error"); return; }
+    const ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+    ws.onopen = () => {
+      ws.send("CAP REQ :twitch.tv/tags");
+      ws.send("PASS SCHMOOZE");
+      ws.send("NICK justinfan" + Math.floor(10000 + Math.random() * 80000));
+      ws.send("JOIN #" + CONFIG.CANAL_TWITCH.toLowerCase());
+      indicador("Chat", "Chat de " + CONFIG.CANAL_TWITCH, "ok");
+    };
+    ws.onmessage = (ev) => {
+      for (const linea of ev.data.split("\r\n")) {
+        if (!linea) continue;
+        if (linea.startsWith("PING")) { ws.send("PONG :tmi.twitch.tv"); continue; }
+        leerLinea(linea);
+      }
+    };
+    ws.onclose = () => { indicador("Chat", "Chat desconectado, reintentando…", "error"); setTimeout(conectarChat, 5000); };
+  }
+  function leerLinea(linea) {
+    const tags = {};
+    let resto = linea;
+    if (linea[0] === "@") {
+      const i = linea.indexOf(" ");
+      linea.slice(1, i).split(";").forEach((p) => { const j = p.indexOf("="); tags[p.slice(0, j)] = p.slice(j + 1); });
+      resto = linea.slice(i + 1);
+    }
+    const m = resto.match(/^:(\w+)!\S+ PRIVMSG #\S+ :(.*)$/);
+    if (!m) return;
+    const login = m[1].toLowerCase();
+    const mensaje = m[2].trim();
+    const partes = mensaje.split(/\s+/);
+    if (partes[0].toLowerCase() !== CONFIG.COMANDO.toLowerCase()) return;
+    const nombre = tags["display-name"] || login;
+    const esDueno = (tags.badges || "").includes("broadcaster/");
+    peticionChat(nombre, login, partes.slice(1).join(" "), esDueno);
+  }
+
+  async function peticionChat(nombre, login, texto, esDueno) {
+    const vid = extraerVideoId(texto);
+    if (!vid) { aviso(`${nombre}: usa ${CONFIG.COMANDO} seguido de una liga de YouTube.`, "error", true); return; }
+    if (!esDueno) {
+      if (!estado.abiertas) { aviso(`${nombre}: las peticiones están cerradas por ahora.`, "error", true); return; }
+      if (estado.bloqueados.includes(login)) { aviso(`${nombre} ya llenó su cupo de canciones por hoy.`, "error", true); return; }
+    }
+    if (yaEstaPedida(vid)) { aviso(`${nombre}: esa canción ya está en la lista.`, "error", true); return; }
+    const info = await obtenerInfo(vid);
+    if (info.error) {
+      aviso(`${nombre}: ${info.error === "bloqueado" ? "ese video no se puede reproducir fuera de YouTube." : "no encontré ese video."}`, "error", true);
+      return;
+    }
+    const max = CONFIG.DURACION_MAXIMA_MIN * 60;
+    if (!esDueno && max && info.duracion > max) { aviso(`${nombre}: la canción dura más de ${CONFIG.DURACION_MAXIMA_MIN} min.`, "error", true); return; }
+    if (yaEstaPedida(vid)) return;
+    quitarDelRelleno(vid);
+    const item = crearItem({ videoId: vid, ...info }, esDueno ? "yo" : "chat", { pedidoPor: nombre, login, prioridad: esDueno });
+    if (esDueno) insertarSiguiente(item);
+    else { insertarPeticion(item); estado.usuarios[login] = nombre; }
+    aviso(`${nombre} agregó "${item.titulo}"`, "ok", true);
+    if (!estado.actual) siguiente(); else guardar();
+  }
+
+  // ---------- Tus canciones ----------
+  async function agregarManual(modo) {
+    const vid = extraerVideoId($("ligaManual").value);
+    if (!vid) { aviso("Esa liga no es de un video de YouTube.", "error"); return; }
+    const info = await obtenerInfo(vid);
+    if (info.error) { aviso(info.error === "bloqueado" ? "Ese video no se puede reproducir fuera de YouTube." : "No encontré ese video.", "error"); return; }
+    $("ligaManual").value = "";
+    agregarTuya({ videoId: vid, ...info }, modo);
+  }
+  function agregarTuya(info, modo) {
+    estado.cola = estado.cola.filter((c) => !(c.videoId === info.videoId && c.origen !== "chat"));
+    const item = crearItem(info, "yo", { prioridad: true });
+    if (modo === "ya") ponerYa(item);
+    else { insertarSiguiente(item); if (!estado.actual) siguiente(); else guardar(); }
+  }
+
+  // ---------- Dibujar ----------
+  function dibujar() {
+    const a = estado.actual;
+    $("actualTitulo").textContent = a ? a.titulo : "Nada sonando";
+    $("actualQuien").textContent = a
+      ? (a.origen === "chat" ? `Pedida por ${a.pedidoPor}` : a.origen === "yo" ? "La elegiste tú" : "De tu relleno") + (a.canal ? `, ${a.canal}` : "")
+      : (meGusta.length ? "La lista está vacía" : "Conecta Google para empezar con tus Me gusta");
+
+    const peticiones = estado.cola.filter((c) => c.origen === "chat").length;
+    $("colaCuenta").textContent = `${estado.cola.length} en lista, ${peticiones} del chat`;
+
+    if (!arrastrando) {
+      $("cola").innerHTML = estado.cola.length
+        ? estado.cola.map((c, i) => `
+          <li class="item ${c.origen}" data-id="${c.id}">
+            <span class="pos">${i + 1}</span>
+            <div style="min-width:0">
+              <div class="t" title="${esc(c.titulo)}">${esc(c.titulo)}</div>
+              <div class="s"><b>${c.origen === "chat" ? esc(c.pedidoPor) : ORIGEN_TEXTO[c.origen]}</b>${c.canal ? " — " + esc(c.canal) : ""}</div>
+            </div>
+            <div class="acciones">
+              <button class="mini" data-accion="ya" title="Poner ya">▶</button>
+              <button class="mini" data-accion="subir" title="Mover a siguiente">⤒</button>
+              <button class="mini" data-accion="quitar" title="Quitar">✕</button>
+            </div>
+          </li>`).join("")
+        : `<li class="vacio">Sin canciones en espera. Las peticiones del chat aparecerán aquí.</li>`;
+    }
+
+    $("abiertas").checked = estado.abiertas;
+    const pendientes = {};
+    estado.cola.forEach((c) => { if (c.origen === "chat") pendientes[c.login] = (pendientes[c.login] || 0) + 1; });
+    const logins = Object.keys(estado.usuarios).sort((x, y) => (pendientes[y] || 0) - (pendientes[x] || 0));
+    $("listaUsuarios").innerHTML = logins.length
+      ? logins.map((l) => {
+          const bloq = estado.bloqueados.includes(l);
+          return `<div class="usuario ${bloq ? "bloqueado" : ""}" data-login="${esc(l)}">
+            <div><div class="nombre">${esc(estado.usuarios[l])}</div><div class="cuenta">${pendientes[l] || 0} en lista</div></div>
+            <label><input type="checkbox" data-accion="bloquear" ${bloq ? "checked" : ""}> Bloquear</label>
+            <button class="mini" data-accion="quitarTodas" title="Quitar todas sus canciones">Quitar sus canciones</button>
+          </div>`;
+        }).join("")
+      : `<div class="vacio">Aquí aparecerá quien pida canciones.</div>`;
+  }
+
+  function dibujarMeGusta() {
+    const q = $("buscar").value.trim().toLowerCase();
+    const filtradas = q ? meGusta.filter((c) => (c.titulo + " " + c.canal).toLowerCase().includes(q)) : meGusta;
+    const mostrar = filtradas.slice(0, 150);
+    $("listaGusta").innerHTML = mostrar.length
+      ? mostrar.map((c) => `
+        <div class="gusta" data-vid="${c.videoId}">
+          <div style="min-width:0"><div class="t" title="${esc(c.titulo)}">${esc(c.titulo)}</div><div class="s">${esc(c.canal)}</div></div>
+          <div class="acciones">
+            <button class="mini" data-accion="ya">Ya</button>
+            <button class="mini" data-accion="sig">Siguiente</button>
+          </div>
+        </div>`).join("") +
+        (filtradas.length > mostrar.length ? `<div class="nota">Mostrando 150 de ${filtradas.length}. Escribe en el buscador para encontrar otras.</div>` : "")
+      : `<div class="vacio">${meGusta.length ? "Ninguna canción coincide con la búsqueda." : "Conecta Google para ver tus Me gusta."}</div>`;
+  }
+
+  // ---------- Eventos ----------
+  $("btnGoogle").onclick = conectarGoogle;
+  $("btnRecargar").onclick = conectarGoogle;
+  $("btnSaltar").onclick = siguiente;
+  $("btnPlay").onclick = () => {
+    if (!playerListo) return;
+    if (player.getPlayerState() === YT.PlayerState.PLAYING) player.pauseVideo();
+    else if (estado.actual) player.playVideo();
+    else siguiente();
+  };
+  $("volumen").value = volumen;
+  $("volumen").oninput = (e) => {
+    volumen = +e.target.value;
+    if (playerListo) player.setVolume(volumen);
+    try { localStorage.setItem("zonalSongVol", volumen); } catch {}
+  };
+  $("btnManualYa").onclick = () => agregarManual("ya");
+  $("btnManualSig").onclick = () => agregarManual("sig");
+  $("ligaManual").onkeydown = (e) => { if (e.key === "Enter") agregarManual("sig"); };
+  $("btnOverlay").onclick = () => window.open(location.pathname + "?overlay", "zonalOverlay", "width=520,height=560");
+  $("btnReiniciar").onclick = () => {
+    if (!confirm("¿Vaciar la lista, los usuarios y los bloqueos? La canción actual se detiene.")) return;
+    estado = { actual: null, cola: [], bloqueados: [], usuarios: {}, abiertas: true };
+    bolsa = mezclar([...meGusta]); bolsaIdx = 0;
+    agregarRelleno(CONFIG.RELLENO_CANTIDAD);
+    siguiente();
+  };
+  $("abiertas").onchange = (e) => { estado.abiertas = e.target.checked; guardar(); };
+  $("buscar").oninput = dibujarMeGusta;
+
+  document.querySelectorAll(".pestanas button").forEach((b) => {
+    b.onclick = () => {
+      document.querySelectorAll(".pestanas button").forEach((x) => x.setAttribute("aria-selected", x === b));
+      $("pestanaGusta").style.display = b.dataset.pestana === "gusta" ? "flex" : "none";
+      $("pestanaUsuarios").style.display = b.dataset.pestana === "usuarios" ? "flex" : "none";
+    };
+  });
+
+  $("cola").onclick = (e) => {
+    const btn = e.target.closest("button[data-accion]");
+    if (!btn) return;
+    const id = btn.closest(".item").dataset.id;
+    const i = estado.cola.findIndex((c) => c.id === id);
+    if (i < 0) return;
+    const accion = btn.dataset.accion;
+    if (accion === "ya") ponerYa(estado.cola[i]);
+    if (accion === "subir") { const [c] = estado.cola.splice(i, 1); estado.cola.unshift(c); guardar(); }
+    if (accion === "quitar") { estado.cola.splice(i, 1); guardar(); }
+  };
+
+  $("listaGusta").onclick = (e) => {
+    const btn = e.target.closest("button[data-accion]");
+    if (!btn) return;
+    const c = meGusta.find((x) => x.videoId === btn.closest(".gusta").dataset.vid);
+    if (c) agregarTuya(c, btn.dataset.accion === "ya" ? "ya" : "sig");
+  };
+
+  $("listaUsuarios").onclick = (e) => {
+    const fila = e.target.closest(".usuario");
+    if (!fila) return;
+    const login = fila.dataset.login;
+    const accion = e.target.dataset.accion;
+    if (accion === "bloquear") {
+      estado.bloqueados = e.target.checked
+        ? [...new Set([...estado.bloqueados, login])]
+        : estado.bloqueados.filter((x) => x !== login);
+      guardar();
+    }
+    if (accion === "quitarTodas") {
+      estado.cola = estado.cola.filter((c) => !(c.origen === "chat" && c.login === login));
+      guardar();
+    }
+  };
+
+  Sortable.create($("cola"), {
+    animation: 150,
+    filter: "button, .vacio",
+    preventOnFilter: false,
+    onStart: () => { arrastrando = true; },
+    onEnd: (e) => {
+      arrastrando = false;
+      if (e.oldIndex !== e.newIndex) {
+        const [c] = estado.cola.splice(e.oldIndex, 1);
+        estado.cola.splice(e.newIndex, 0, c);
+      }
+      guardar();
+    },
+  });
+
+  dibujar();
+  conectarChat();
+}
+
+/* =========================================================
+   OVERLAY (se abre con el botón "Abrir overlay")
+   ========================================================= */
+function iniciarOverlay() {
+  document.body.classList.add("overlay");
+  document.title = "Zonal Song — Overlay";
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <div class="ov">
+      <div class="ov-actual" id="ovActual"></div>
+      <div class="progreso"><div id="ovProgreso"></div></div>
+      <ol id="ovLista"></ol>
+      <div id="ovAviso"></div>
+    </div>`;
+  let temporizador;
+  canal.onmessage = (e) => {
+    const d = e.data || {};
+    if (d.tipo === "estado") {
+      const a = d.actual;
+      const el = document.getElementById("ovActual");
+      el.style.setProperty("--c", a ? `var(--${a.origen === "yo" ? "tu" : a.origen})` : "var(--relleno)");
+      el.innerHTML = a
+        ? `<div class="etiqueta">Sonando ahora</div>
+           <div class="cancion">${esc(a.titulo)}</div>
+           <div class="quien">${a.origen === "chat" ? "Pedida por " + esc(a.pedidoPor) : a.origen === "yo" ? "Elegida por Zonal" : "Lista de Zonal"}</div>`
+        : `<div class="etiqueta">Sin música por ahora</div><div class="cancion">Pide una con !song</div>`;
+      document.getElementById("ovLista").innerHTML = (d.siguientes || []).map((c) => `
+        <li class="${c.origen}"><div style="min-width:0">
+          <div class="t">${esc(c.titulo)}</div>
+          <div class="s">${c.origen === "chat" ? esc(c.pedidoPor) : ORIGEN_TEXTO[c.origen]}</div>
+        </div></li>`).join("");
+    }
+    if (d.tipo === "progreso") document.getElementById("ovProgreso").style.width = d.pct + "%";
+    if (d.tipo === "aviso") {
+      const caja = document.getElementById("ovAviso");
+      caja.innerHTML = `<div class="ov-aviso ${d.error ? "error" : ""}">${esc(d.texto)}</div>`;
+      clearTimeout(temporizador);
+      temporizador = setTimeout(() => { caja.innerHTML = ""; }, 7000);
+    }
+  };
+  canal.postMessage({ tipo: "pedir" });
+}
+</script>
+</body>
+</html>
