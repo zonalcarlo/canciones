@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zonal Song: lista de canciones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --fondo: #1b1630;
+    --superficie: #252040;
+    --borde: #3d3566;
+    --texto: #ece6f6;
+    --tenue: #a99fc4;
+    --tu: #e8b04a;
+    --chat: #b48cff;
+    --relleno: #58c4a8;
+    --titulo: "Fraunces", Georgia, "Times New Roman", serif;
+    --ui: "Figtree", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fondo); color: var(--texto); font: 16px/1.45 var(--ui); }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 18px 40px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font: 700 28px var(--titulo); margin: 0; }
+  .vivo { font-size: 14px; color: var(--tenue); display: flex; align-items: center; gap: 6px; }
+  .vivo i { width: 9px; height: 9px; border-radius: 50%; background: var(--tenue); }
+  .vivo.activo i { background: var(--relleno); }
+
+  .ahora { margin: 22px 0 26px; padding: 18px 18px 18px 20px; background: var(--superficie); border-radius: 12px; border-left: 6px solid var(--c, var(--relleno)); }
+  .ahora .etiqueta { font-size: 14px; color: var(--tenue); }
+  .ahora .cancion { font: 700 26px/1.2 var(--titulo); margin: 6px 0; overflow-wrap: anywhere; }
+  .ahora .quien { font-size: 15px; font-weight: 600; color: var(--c, var(--tenue)); }
+
+  h2 { font: 600 16px var(--ui); color: var(--tenue); margin: 0 0 10px; }
+  ol { list-style: none; margin: 0; padding: 0; }
+  li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--borde); }
+  li .n { color: var(--tenue); text-align: right; font-variant-numeric: tabular-nums; padding-top: 1px; }
+  li .t { font-weight: 600; overflow-wrap: anywhere; }
+  li .s { font-size: 13px; color: var(--tenue); }
+  li .s b { font-weight: 600; color: var(--c); }
+  li.yo { --c: var(--tu); } li.chat { --c: var(--chat); } li.relleno { --c: var(--relleno); }
+  .mas { font-size: 14px; color: var(--tenue); padding: 12px 0; }
+
+  .pedir { margin-top: 26px; padding: 16px 18px; border: 1px dashed var(--borde); border-radius: 12px; }
+  .pedir p { margin: 0; }
+  .pedir code { background: var(--superficie); color: var(--chat); padding: 2px 7px; border-radius: 6px; font-size: 15px; }
+  .pedir .cerradas { color: var(--tu); }
+  .vacio { color: var(--tenue); padding: 20px 0; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Zonal Song</h1>
+    <span class="vivo" id="vivo"><i></i><span id="vivoTxt">Conectando…</span></span>
+  </header>
+  <section class="ahora" id="ahora">
+    <div class="etiqueta">Cargando la lista…</div>
+  </section>
+  <section>
+    <h2 id="siguenTitulo">Lo que sigue</h2>
+    <ol id="siguen"></ol>
+  </section>
+  <section class="pedir" id="pedir"></section>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* Pega aquí los mismos datos de Firebase que pusiste en index.html */
+const FIREBASE: {
+    apiKey: "AIzaSyBzsFEpARSq2s0wzFkCEOVXLLcrrP8MyPk",
+    authDomain: "zonal-song.firebaseapp.com",
+    databaseURL: "https://zonal-song-default-rtdb.firebaseio.com",
+    projectId: "zonal-song",
+    appId: "1:947464063019:web:8ae624fbb3aa1db929026e",
+  },
+const CANAL = "zonalman";
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const color = (o) => (o === "yo" ? "var(--tu)" : o === "chat" ? "var(--chat)" : "var(--relleno)");
+const quien = (c) => (c.origen === "chat" ? "Pedida por " + esc(c.pedidoPor) : c.origen === "yo" ? "Elegida por Zonal" : "Lista de Zonal");
+
+firebase.initializeApp(FIREBASE);
+const db = firebase.database();
+let desfase = 0, ultimo = null;
+db.ref(".info/serverTimeOffset").on("value", (s) => { desfase = s.val() || 0; revisarVivo(); });
+
+db.ref("zonalsong/estado").on("value", (snap) => {
+  ultimo = snap.val();
+  dibujar();
+  revisarVivo();
+}, () => {
+  document.getElementById("vivoTxt").textContent = "No se pudo leer la lista";
+});
+
+// Si el panel deja de mandar señal por más de 3 minutos, el stream probablemente terminó
+function revisarVivo() {
+  const activo = ultimo && ultimo.latido && Date.now() + desfase - ultimo.latido < 3 * 60 * 1000;
+  document.getElementById("vivo").classList.toggle("activo", !!activo);
+  document.getElementById("vivoTxt").textContent = activo ? "En vivo" : "Sin stream ahora";
+  document.getElementById("pedir").style.display = activo ? "" : "none";
+  if (ultimo && !activo) {
+    document.getElementById("ahora").innerHTML = `<div class="etiqueta">La lista se activa cuando Zonal está en stream.</div><div class="cancion">Vuelve pronto</div>`;
+    document.getElementById("siguen").innerHTML = "";
+    document.getElementById("siguenTitulo").style.display = "none";
+  }
+}
+setInterval(revisarVivo, 30000);
+
+function dibujar() {
+  const e = ultimo;
+  const ahora = document.getElementById("ahora");
+  document.getElementById("siguenTitulo").style.display = "";
+  if (!e) {
+    ahora.innerHTML = `<div class="etiqueta">Todavía no hay lista.</div><div class="cancion">Vuelve cuando empiece el stream</div>`;
+    document.getElementById("siguen").innerHTML = "";
+    return;
+  }
+  const a = e.actual;
+  ahora.style.setProperty("--c", a ? color(a.origen) : "var(--relleno)");
+  ahora.innerHTML = a
+    ? `<div class="etiqueta">Sonando ahora</div><div class="cancion">${esc(a.titulo)}</div><div class="quien">${quien(a)}</div>`
+    : `<div class="etiqueta">Nada sonando por ahora</div><div class="cancion">Pide la primera canción</div>`;
+
+  const lista = e.siguientes || [];
+  document.getElementById("siguen").innerHTML = lista.length
+    ? lista.map((c, i) => `
+      <li class="${c.origen}"><span class="n">${i + 1}</span>
+        <div><div class="t">${esc(c.titulo)}</div><div class="s"><b>${quien(c)}</b>${c.canal ? ", " + esc(c.canal) : ""}</div></div>
+      </li>`).join("") + (e.total > lista.length ? `<li class="mas" style="display:block">Y ${e.total - lista.length} canciones más de la lista de Zonal.</li>` : "")
+    : `<li class="vacio" style="display:block">No hay canciones en espera.</li>`;
+
+  const cmd = esc(e.comando || "!song");
+  document.getElementById("pedir").innerHTML = e.abiertas
+    ? `<p>Para pedir una canción, escribe en el chat de <b>${esc(CANAL)}</b>:</p><p style="margin-top:8px"><code>${cmd} liga-de-youtube</code></p>`
+    : `<p class="cerradas">Las peticiones están cerradas por ahora.</p>`;
+}
+</script>
+</body>
+</html>

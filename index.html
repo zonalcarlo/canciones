@@ -164,15 +164,26 @@
 <div id="avisos" aria-live="polite"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 /* =========================================================
    CONFIGURACIÓN — cambia solo esta parte
    ========================================================= */
 const CONFIG = {
   // Client ID de Google Cloud (cliente OAuth de tipo "Aplicación web")
-  GOOGLE_CLIENT_ID: "947464063019-133v6cfuid8grvj7lsetag127484rjjj.apps.googleusercontent.com" ,
+  GOOGLE_CLIENT_ID: "PEGA_AQUI_TU_CLIENT_ID.apps.googleusercontent.com",
   // Tu canal de Twitch, tal como aparece en la URL (twitch.tv/ESTO)
   CANAL_TWITCH: "zonalman",
+  // Datos de Firebase para la lista pública (Configuración del proyecto → Tus apps → Web)
+  FIREBASE: {
+    apiKey: "AIzaSyBzsFEpARSq2s0wzFkCEOVXLLcrrP8MyPk",
+    authDomain: "zonal-song.firebaseapp.com",
+    databaseURL: "https://zonal-song-default-rtdb.firebaseio.com",
+    projectId: "zonal-song",
+    appId: "1:947464063019:web:8ae624fbb3aa1db929026e",
+  },
   // Comando del chat
   COMANDO: "!song",
   // Cuántas canciones de relleno se toman al azar de tus Me gusta
@@ -218,6 +229,8 @@ function iniciarPanel() {
       <h1>Zonal Song</h1>
       <span class="estado"><span class="punto" id="puntoGoogle"></span><span id="txtGoogle">Me gusta sin cargar</span></span>
       <span class="estado"><span class="punto" id="puntoChat"></span><span id="txtChat">Chat sin conectar</span></span>
+      <span class="estado"><span class="punto" id="puntoPublica"></span><span id="txtPublica">Lista pública sin conectar</span></span>
+      <button id="btnPublica" style="display:none">Conectar lista pública</button>
       <button class="principal" id="btnGoogle">Conectar con Google</button>
     </header>
     <main class="rejilla">
@@ -301,6 +314,7 @@ function iniciarPanel() {
     try { sessionStorage.setItem("zonalSong", JSON.stringify(estado)); } catch {}
     dibujar();
     emitir();
+    publicar();
   }
   function emitir() {
     canal.postMessage({ tipo: "estado", actual: estado.actual, siguientes: estado.cola.slice(0, 5) });
@@ -495,6 +509,7 @@ function iniciarPanel() {
           if (r.error) { aviso("Google no dio acceso: " + r.error, "error"); indicador("Google", "Sin acceso", "error"); return; }
           token = r.access_token;
           tokenExpira = Date.now() + (Number(r.expires_in || 3600) - 60) * 1000;
+          conectarPublica(token);
           await cargarMeGusta();
         },
       });
@@ -550,6 +565,61 @@ function iniciarPanel() {
     dibujarMeGusta();
     if (!estado.actual) siguiente(); else guardar();
   }
+
+  // ---------- Lista pública (Firebase) ----------
+  let fbDb = null, fbListo = false, fbTimer = null;
+  const fbConfigurado = CONFIG.FIREBASE && CONFIG.FIREBASE.apiKey && !CONFIG.FIREBASE.apiKey.startsWith("PEGA");
+  if (fbConfigurado && window.firebase) {
+    firebase.initializeApp(CONFIG.FIREBASE);
+    fbDb = firebase.database();
+    firebase.auth().onAuthStateChanged((u) => {
+      fbListo = !!u;
+      if (u) {
+        indicador("Publica", "Lista pública activa", "ok");
+        $("btnPublica").style.display = "none";
+        publicar(true);
+      }
+    });
+  } else {
+    indicador("Publica", "Lista pública sin configurar", "");
+  }
+
+  async function conectarPublica(accessToken) {
+    if (!fbDb || firebase.auth().currentUser) return;
+    try {
+      await firebase.auth().signInWithCredential(firebase.auth.GoogleAuthProvider.credential(null, accessToken));
+    } catch (e) {
+      console.warn("Firebase con token de Google:", e);
+      indicador("Publica", "Falta conectar la lista pública", "error");
+      $("btnPublica").style.display = "";
+    }
+  }
+  $("btnPublica").onclick = async () => {
+    try { await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+    catch (e) { aviso("No se pudo conectar la lista pública: " + e.message, "error"); }
+  };
+
+  function publicar(inmediato) {
+    if (!fbListo) return;
+    clearTimeout(fbTimer);
+    fbTimer = setTimeout(() => {
+      const limpio = (c) => (c ? { titulo: c.titulo || "", canal: c.canal || "", origen: c.origen, pedidoPor: c.pedidoPor || "" } : null);
+      fbDb.ref("zonalsong/estado").set({
+        actual: limpio(estado.actual),
+        siguientes: estado.cola.slice(0, 30).map(limpio),
+        total: estado.cola.length,
+        peticiones: estado.cola.filter((c) => c.origen === "chat").length,
+        abiertas: estado.abiertas,
+        comando: CONFIG.COMANDO,
+        latido: firebase.database.ServerValue.TIMESTAMP,
+      }).then(() => indicador("Publica", "Lista pública activa", "ok"))
+        .catch((e) => indicador("Publica", "Sin permiso para publicar: " + e.code, "error"));
+    }, inmediato ? 0 : 400);
+  }
+  // Latido: avisa a la página pública que el panel sigue abierto
+  setInterval(() => {
+    if (fbListo) fbDb.ref("zonalsong/estado/latido").set(firebase.database.ServerValue.TIMESTAMP).catch(() => {});
+  }, 60000);
 
   // ---------- Chat de Twitch (solo lectura, anónimo) ----------
   function conectarChat() {
