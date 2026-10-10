@@ -71,13 +71,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 /* Pega aquí los mismos datos de Firebase que pusiste en index.html */
-const FIREBASE: {
+const FIREBASE = {
     apiKey: "AIzaSyBzsFEpARSq2s0wzFkCEOVXLLcrrP8MyPk",
     authDomain: "zonal-song.firebaseapp.com",
     databaseURL: "https://zonal-song-default-rtdb.firebaseio.com",
     projectId: "zonal-song",
     appId: "1:947464063019:web:8ae624fbb3aa1db929026e",
-  },
+  };
 const CANAL = "zonalman";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
