@@ -195,9 +195,9 @@
 <script>
 /* La configuración vive en config.js (así este archivo se puede actualizar sin perderla) */
 const CONFIG = Object.assign({
-  GOOGLE_CLIENT_ID: "947464063019-133v6cfuid8grvj7lsetag127484rjjj.apps.googleusercontent.com",
-  YOUTUBE_API_KEY: "AIzaSyCXIGZOX_rBdr5KSZjQoiVT4yEktQ5yn4w",
-  CANAL_TWITCH: "zonalman",
+  GOOGLE_CLIENT_ID: "PEGA_AQUI",
+  YOUTUBE_API_KEY: "PEGA_AQUI",
+  CANAL_TWITCH: "tu_canal",
   FIREBASE: null,
   COMANDO: "!song",
   RELLENO_CANTIDAD: 50,
@@ -269,6 +269,7 @@ function iniciarPanel() {
           </div>
           <div class="herramientas">
             <button id="btnOverlay">Abrir overlay</button>
+            <button id="btnNuevoRelleno">Nuevas canciones de relleno</button>
             <button id="btnRecargar">Recargar Me gusta</button>
             <button id="btnReiniciar">Reiniciar lista</button>
             <button id="btnAcomodo">Acomodo original</button>
@@ -1029,6 +1030,22 @@ function iniciarPanel() {
   // ---------- Eventos ----------
   $("btnGoogle").onclick = conectarGoogle;
   $("btnRecargar").onclick = conectarGoogle;
+  // Cambia el relleno por una selección nueva, sin tocar peticiones ni tus canciones
+  $("btnNuevoRelleno").onclick = () => {
+    if (!meGusta.length) { aviso("Primero conecta Google para cargar tus Me gusta.", "error"); return; }
+    const anteriores = new Set(estado.cola.filter((c) => c.origen === "relleno").map((c) => c.videoId));
+    estado.cola = estado.cola.filter((c) => c.origen !== "relleno");
+    // Primero las que no estaban en la selección anterior
+    bolsa = [
+      ...mezclar(meGusta.filter((c) => !anteriores.has(c.videoId))),
+      ...mezclar(meGusta.filter((c) => anteriores.has(c.videoId))),
+    ];
+    bolsaIdx = 0;
+    agregarRelleno(CONFIG.RELLENO_CANTIDAD);
+    const nuevas = estado.cola.filter((c) => c.origen === "relleno" && !anteriores.has(c.videoId)).length;
+    aviso(`Relleno nuevo: ${nuevas} canciones que no estaban en la selección anterior.`);
+    if (!estado.actual) siguiente(); else guardar();
+  };
   $("btnSaltar").onclick = siguiente;
   $("btnPlay").onclick = () => {
     if (!playerListo) return;
