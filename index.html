@@ -94,6 +94,10 @@
 
   .agregar .fila { display: flex; gap: 8px; margin-top: 8px; }
   .agregar .herramientas { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--borde); }
+  .orden { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--tenue); }
+  .orden select { flex: 1; background: var(--fondo); border: 1px solid var(--borde); border-radius: 8px; padding: 6px 8px; color: var(--texto); font: inherit; }
+  button.gustado { color: var(--peligro); border-color: var(--peligro); cursor: default; }
+  button.corazon { font-size: 15px; line-height: 1; }
   .agregar .fila button { flex: 1; }
 
   .leyenda { display: flex; gap: 12px; font-size: 12px; font-weight: 400; color: var(--tenue); margin-left: auto; }
@@ -226,6 +230,12 @@ function iniciarPanel() {
   } catch {}
 
   let meGusta = [], bolsa = [], bolsaIdx = 0, fuenteMeGusta = "";
+  let gustados = new Set();
+  let trasToken = null; // acción pendiente que necesita un token nuevo de Google
+  let ordenRelleno = "azar";
+  try { ordenRelleno = localStorage.getItem("zonalSongOrden") || "azar"; } catch {}
+  // Arma la fila de donde sale el relleno: al azar o en el orden de tu lista de YouTube
+  const armarBolsa = (lista) => (ordenRelleno === "youtube" ? [...lista] : mezclar([...lista]));
   let token = null, tokenExpira = 0, tokenClient = null;
   let player = null, playerListo = false, arrastrando = false;
   let volumen = CONFIG.VOLUMEN_INICIAL;
@@ -254,6 +264,7 @@ function iniciarPanel() {
           <div class="controles">
             <button id="btnPlay" aria-label="Pausar o reproducir">Pausa</button>
             <button id="btnSaltar">Saltar</button>
+            <button id="btnGusta" class="corazon" title="Dar Me gusta en YouTube a la canción que suena">♡</button>
             <input type="range" min="0" max="100" id="volumen" aria-label="Volumen">
           </div>
         </div>
@@ -269,6 +280,12 @@ function iniciarPanel() {
           </div>
           <div class="herramientas">
             <button id="btnOverlay">Abrir overlay</button>
+            <label class="orden">Orden del relleno
+              <select id="ordenRelleno">
+                <option value="azar">Al azar</option>
+                <option value="youtube">Como en YouTube</option>
+              </select>
+            </label>
             <button id="btnNuevoRelleno">Nuevas canciones de relleno</button>
             <button id="btnRecargar">Recargar Me gusta</button>
             <button id="btnReiniciar">Reiniciar lista</button>
@@ -464,7 +481,7 @@ function iniciarPanel() {
     if (estado.actual) enUso.add(estado.actual.videoId);
     let agregadas = 0, intentos = 0;
     while (agregadas < n && intentos < meGusta.length * 2) {
-      if (bolsaIdx >= bolsa.length) { bolsa = mezclar([...meGusta]); bolsaIdx = 0; }
+      if (bolsaIdx >= bolsa.length) { bolsa = armarBolsa(meGusta); bolsaIdx = 0; }
       const c = bolsa[bolsaIdx++]; intentos++;
       if (enUso.has(c.videoId)) continue;
       enUso.add(c.videoId);
@@ -558,19 +575,53 @@ function iniciarPanel() {
     if (!tokenClient) {
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CONFIG.GOOGLE_CLIENT_ID,
-        scope: "https://www.googleapis.com/auth/youtube.readonly",
+        // force-ssl permite leer tu lista y también dar Me gusta
+        scope: "https://www.googleapis.com/auth/youtube.force-ssl",
         callback: async (r) => {
+          const pendiente = trasToken; trasToken = null;
           if (r.error) { aviso("Google no dio acceso: " + r.error, "error"); indicador("Google", "Sin acceso", "error"); return; }
           token = r.access_token;
           tokenExpira = Date.now() + (Number(r.expires_in || 3600) - 60) * 1000;
           conectarPublica(token);
-          await cargarMeGusta();
+          if (pendiente) await pendiente();
+          else await cargarMeGusta();
         },
       });
     }
     // Este clic también desbloquea el audio en Chrome
     if (playerListo && estado.actual) player.playVideo();
     tokenClient.requestAccessToken({ prompt: "" });
+  }
+
+  // ---------- Dar Me gusta en YouTube ----------
+  async function darMeGusta(item) {
+    if (!item || gustados.has(item.videoId)) return;
+    // La sesión de Google dura una hora; si ya venció, la pide de nuevo y luego da el like
+    if (!tokenVigente()) {
+      if (!tokenClient) { aviso("Primero conecta Google.", "error"); return; }
+      trasToken = () => darMeGusta(item);
+      tokenClient.requestAccessToken({ prompt: "" });
+      return;
+    }
+    try {
+      const r = await fetch(`https://www.googleapis.com/youtube/v3/videos/rate?id=${encodeURIComponent(item.videoId)}&rating=like`,
+        { method: "POST", headers: { Authorization: "Bearer " + token } });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        const msg = (d.error && d.error.message) || ("Error " + r.status);
+        if (r.status === 403 && /insufficient|scope/i.test(msg)) {
+          aviso("Falta el permiso para dar Me gusta. Da clic en Reconectar Google y acepta el nuevo permiso.", "error");
+        } else aviso("No se pudo dar Me gusta: " + msg, "error");
+        return;
+      }
+    } catch (e) { aviso("No se pudo dar Me gusta: " + e.message, "error"); return; }
+    gustados.add(item.videoId);
+    if (!meGusta.some((c) => c.videoId === item.videoId)) {
+      meGusta.unshift({ videoId: item.videoId, titulo: item.titulo, canal: item.canal || "" });
+      dibujarMeGusta();
+    }
+    aviso(`♥ "${item.titulo}" ya está en tus Me gusta.`);
+    dibujar();
   }
 
   async function leerPlaylist(id, limite) {
@@ -611,7 +662,8 @@ function iniciarPanel() {
     }
     if (!lista.length) { aviso("Tu lista de Me gusta salió vacía.", "error"); indicador("Google", "Me gusta vacía", "error"); return; }
     meGusta = lista;
-    bolsa = mezclar([...meGusta]); bolsaIdx = 0;
+    gustados = new Set(meGusta.map((c) => c.videoId));
+    bolsa = armarBolsa(meGusta); bolsaIdx = 0;
     estado.cola = estado.cola.filter((c) => c.origen !== "relleno");
     agregarRelleno(CONFIG.RELLENO_CANTIDAD);
     indicador("Google", `${meGusta.length} canciones de ${fuenteMeGusta}`, "ok");
@@ -973,6 +1025,12 @@ function iniciarPanel() {
       ? (a.origen === "chat" ? `Pedida por ${a.pedidoPor}` : a.origen === "yo" ? "La elegiste tú" : "De tu relleno") + (a.canal ? `, ${a.canal}` : "")
       : (meGusta.length ? "La lista está vacía" : "Conecta Google para empezar con tus Me gusta");
 
+    const ya = a && gustados.has(a.videoId);
+    $("btnGusta").textContent = ya ? "♥" : "♡";
+    $("btnGusta").classList.toggle("gustado", !!ya);
+    $("btnGusta").disabled = !a || !!ya;
+    $("btnGusta").title = ya ? "Ya está en tus Me gusta" : "Dar Me gusta en YouTube a la canción que suena";
+
     const peticiones = estado.cola.filter((c) => c.origen === "chat").length;
     $("colaCuenta").textContent = `${estado.cola.length} en lista, ${peticiones} del chat`;
 
@@ -986,6 +1044,9 @@ function iniciarPanel() {
               <div class="s"><b>${c.origen === "chat" ? esc(c.pedidoPor) : ORIGEN_TEXTO[c.origen]}</b>${c.canal ? " — " + esc(c.canal) : ""}</div>
             </div>
             <div class="acciones">
+              ${c.origen === "relleno" ? "" : (gustados.has(c.videoId)
+                ? `<button class="mini corazon gustado" disabled title="Ya está en tus Me gusta">♥</button>`
+                : `<button class="mini corazon" data-accion="gusta" title="Dar Me gusta en YouTube">♡</button>`)}
               <button class="mini" data-accion="ya" title="Poner ya">▶</button>
               <button class="mini" data-accion="subir" title="Mover a siguiente">⤒</button>
               <button class="mini" data-accion="quitar" title="Quitar">✕</button>
@@ -1035,18 +1096,36 @@ function iniciarPanel() {
     if (!meGusta.length) { aviso("Primero conecta Google para cargar tus Me gusta.", "error"); return; }
     const anteriores = new Set(estado.cola.filter((c) => c.origen === "relleno").map((c) => c.videoId));
     estado.cola = estado.cola.filter((c) => c.origen !== "relleno");
-    // Primero las que no estaban en la selección anterior
-    bolsa = [
-      ...mezclar(meGusta.filter((c) => !anteriores.has(c.videoId))),
-      ...mezclar(meGusta.filter((c) => anteriores.has(c.videoId))),
-    ];
-    bolsaIdx = 0;
+    if (ordenRelleno === "youtube") {
+      // Sigue con las siguientes canciones de tu lista, en orden
+      if (bolsaIdx >= bolsa.length) { bolsa = armarBolsa(meGusta); bolsaIdx = 0; }
+    } else {
+      // Primero las que no estaban en la selección anterior
+      bolsa = [
+        ...mezclar(meGusta.filter((c) => !anteriores.has(c.videoId))),
+        ...mezclar(meGusta.filter((c) => anteriores.has(c.videoId))),
+      ];
+      bolsaIdx = 0;
+    }
     agregarRelleno(CONFIG.RELLENO_CANTIDAD);
     const nuevas = estado.cola.filter((c) => c.origen === "relleno" && !anteriores.has(c.videoId)).length;
     aviso(`Relleno nuevo: ${nuevas} canciones que no estaban en la selección anterior.`);
     if (!estado.actual) siguiente(); else guardar();
   };
   $("btnSaltar").onclick = siguiente;
+  $("btnGusta").onclick = () => darMeGusta(estado.actual);
+  $("ordenRelleno").value = ordenRelleno;
+  $("ordenRelleno").onchange = (e) => {
+    ordenRelleno = e.target.value;
+    try { localStorage.setItem("zonalSongOrden", ordenRelleno); } catch {}
+    if (!meGusta.length) return;
+    // Rehace el relleno con el orden nuevo, sin tocar peticiones ni tus canciones
+    estado.cola = estado.cola.filter((c) => c.origen !== "relleno");
+    bolsa = armarBolsa(meGusta); bolsaIdx = 0;
+    agregarRelleno(CONFIG.RELLENO_CANTIDAD);
+    aviso(ordenRelleno === "youtube" ? "El relleno ahora sigue el orden de tu lista de YouTube." : "El relleno ahora va al azar.");
+    if (!estado.actual) siguiente(); else guardar();
+  };
   $("btnPlay").onclick = () => {
     if (!playerListo) return;
     if (player.getPlayerState() === YT.PlayerState.PLAYING) player.pauseVideo();
@@ -1066,7 +1145,7 @@ function iniciarPanel() {
   $("btnReiniciar").onclick = () => {
     if (!confirm("¿Vaciar la lista, los usuarios y los bloqueos? La canción actual se detiene.")) return;
     estado = { actual: null, cola: [], bloqueados: [], usuarios: {}, abiertas: true };
-    bolsa = mezclar([...meGusta]); bolsaIdx = 0;
+    bolsa = armarBolsa(meGusta); bolsaIdx = 0;
     agregarRelleno(CONFIG.RELLENO_CANTIDAD);
     siguiente();
   };
@@ -1089,6 +1168,7 @@ function iniciarPanel() {
     if (i < 0) return;
     const accion = btn.dataset.accion;
     if (accion === "ya") ponerYa(estado.cola[i]);
+    if (accion === "gusta") darMeGusta(estado.cola[i]);
     if (accion === "subir") { const [c] = estado.cola.splice(i, 1); estado.cola.unshift(c); guardar(); }
     if (accion === "quitar") { estado.cola.splice(i, 1); guardar(); }
   };
